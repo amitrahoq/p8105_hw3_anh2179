@@ -54,8 +54,7 @@ Snowfall is already reported in millimeters and is left as is.
 
 ```{r snow_values}
 ny_noaa_df |> 
-  count(snow) |> 
-  arrange(desc(n)) |> 
+  count(snow, sort=TRUE) |> 
   head(10) |> 
   knitr::kable(col.names = c("Snowfall (mm)", "Count"))
 ```
@@ -84,7 +83,6 @@ ny_noaa_df |>
     title = "Average max temperature in January and July by station",
     x = "Year",
     y = "Mean max temperature (C)",
-    caption = "Each line is one NY NOAA station; red line is a smooth across stations"
   )
 ```
 
@@ -100,7 +98,7 @@ the rest of the panel.
 
 ### tmax vs tmin and the distribution of snowfall
 
-```{r tmax_tmin_snow_plot, fig.height = 8}
+```{r tmax_tmin_snow_plot}
 tmax_tmin_plot = 
   ny_noaa_df |> 
   filter(!is.na(tmax), !is.na(tmin)) |> 
