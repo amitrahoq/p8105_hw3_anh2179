@@ -277,33 +277,37 @@ the timing of activity more than sex does.
 This problem uses data on rides taken on the NYC Citi Bike system.
 
 ```{r load_citibike}
-read_citi = function(file_name, ride_year, ride_month) {
-  
-  read_csv(file_name, na = c("NA", ".", "")) |> 
-    janitor::clean_names() |> 
-    mutate(year = ride_year, month = ride_month)
-  
-}
+jan_2020_df =
+  read_csv("data/Jan 2020 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(year = 2020, month = "January")
 
-citibike_df = 
-  bind_rows(
-    read_citi("data/Jan 2020 Citi.csv", 2020, "January"),
-    read_citi("data/July 2020 Citi.csv", 2020, "July"),
-    read_citi("data/Jan 2024 Citi.csv", 2024, "January"),
-    read_citi("data/July 2024 Citi.csv", 2024, "July")
-  ) |> 
+jul_2020_df =
+  read_csv("data/July 2020 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(year = 2020, month = "July")
+
+jan_2024_df =
+  read_csv("data/Jan 2024 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(year = 2024, month = "January")
+
+jul_2024_df =
+  read_csv("data/July 2024 Citi.csv") |>
+  janitor::clean_names() |>
+  mutate(year = 2024, month = "July")
+
+citibike_df =
+  bind_rows(jan_2020_df, jul_2020_df, jan_2024_df, jul_2024_df) |>
   mutate(
     weekdays = factor(
-      weekdays, 
-      levels = c("Monday", "Tuesday", "Wednesday", "Thursday", 
-                 "Friday", "Saturday", "Sunday")
-    ),
+      weekdays,
+      levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")),
     month = factor(month, levels = c("January", "July")),
     rideable_type = factor(rideable_type),
-    member_casual = factor(member_casual)
-  ) |> 
-  drop_na(duration)
+    member_casual = factor(member_casual))
 ```
+
 
 The four monthly files are read with a short helper function that cleans names
 and records the year and month each file came from, then stacked into a single
