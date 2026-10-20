@@ -22,7 +22,7 @@ data("ny_noaa")
 ```
 
 The raw dataset contains `r nrow(ny_noaa)` observations of `r ncol(ny_noaa)`
-variables, covering `r length(unique(pull(ny_noaa, id)))` weather stations
+variables, covering `r n_distinct(pull(ny_noaa, id))` weather stations
 between `r min(pull(ny_noaa, date))` and `r max(pull(ny_noaa, date))`. Key
 variables are the station `id`, the `date` of observation, precipitation `prcp`
 (tenths of mm), snowfall `snow` (mm), snow depth `snwd` (mm), and maximum and
@@ -37,14 +37,16 @@ analyses is much smaller than the full dataset.
 ### Data cleaning
 
 ```{r clean_noaa}
-ny_noaa_df = 
-  ny_noaa |> 
-  separate(date, into = c("year", "month", "day"), sep = "-", convert = TRUE) |> 
+ny_noaa_df =
+  ny_noaa |>
+  separate(date, into = c("year", "month", "day"), sep = "-") |>
   mutate(
+    year = as.numeric(year),
+    month = as.numeric(month),
+    day = as.numeric(day),
     prcp = prcp / 10,
     tmax = as.numeric(tmax) / 10,
-    tmin = as.numeric(tmin) / 10
-  )
+    tmin = as.numeric(tmin) / 10)
 ```
 
 Dates are split into `year`, `month`, and `day`. Precipitation is converted
@@ -53,11 +55,11 @@ from character values in tenths of degrees Celsius to numeric degrees Celsius.
 Snowfall is already reported in millimeters and is left as is.
 
 ```{r snow_values}
-ny_noaa_df |> 
-  count(snow) |> 
+ny_noaa_df |>
+  count(snow) |>
   arrange(desc(n)) |>
-  head(10) |> 
-  knitr::kable(col.names = c("Snowfall (mm)", "Count"))
+  head(10) |>
+  knitr::kable()
 ```
 
 The most common snowfall value by far is 0, which makes sense because most days
@@ -69,22 +71,21 @@ rounded to millimeters.
 
 ### Average max temperature in January and July
 
-```{r jan_july_plot}
-ny_noaa_df |> 
-  filter(month %in% c(1, 7)) |> 
-  group_by(id, year, month) |> 
-  summarize(mean_tmax = mean(tmax, na.rm = TRUE)) |> 
-  drop_na(mean_tmax) |> 
-  mutate(month = factor(month, levels = c(1, 7), labels = c("January", "July"))) |> 
-  ggplot(aes(x = year, y = mean_tmax, group = id)) + 
-  geom_line(alpha = .3) + 
-  geom_smooth(aes(group = month), se = FALSE, color = "red") + 
-  facet_grid(. ~ month) + 
+```{r jan_july_plot, message=FALSE}
+ny_noaa_df |>
+  filter(month %in% c(1, 7)) |>
+  group_by(id, year, month) |>
+  summarize(mean_tmax = mean(tmax, na.rm = TRUE)) |>
+  drop_na(mean_tmax) |>
+  mutate(month = recode_values(month, 1 ~ "January", 7 ~ "July")) |>
+  ggplot(aes(x = year, y = mean_tmax)) +
+  geom_point(alpha = .3) +
+  geom_smooth(se = FALSE, color = "red") +
+  facet_grid(. ~ month) +
   labs(
     title = "Average max temperature in January and July by station",
     x = "Year",
-    y = "Mean max temperature (C)",
-  )
+    y = "Mean max temperature (C)")
 ```
 
 There is clear and interpretable structure. January averages cluster near 0°C
@@ -100,27 +101,25 @@ the rest of the panel.
 ### tmax vs tmin and the distribution of snowfall
 
 ```{r tmax_tmin_snow_plot}
-tmax_tmin_plot = 
-  ny_noaa_df |> 
-  filter(!is.na(tmax), !is.na(tmin)) |> 
-  ggplot(aes(x = tmin, y = tmax)) + 
-  geom_hex() + 
+tmax_tmin_plot =
+  ny_noaa_df |>
+  drop_na(tmax, tmin) |>
+  ggplot(aes(x = tmin, y = tmax)) +
+  geom_hex() +
   labs(
     title = "Max vs min temperature",
     x = "Min temperature (C)",
-    y = "Max temperature (C)"
-  )
+    y = "Max temperature (C)")
 
-snow_plot = 
-  ny_noaa_df |> 
-  filter(snow > 0, snow < 100) |> 
-  ggplot(aes(x = snow, y = factor(year))) + 
-  geom_density_ridges(scale = .85, alpha = .6) + 
+snow_plot =
+  ny_noaa_df |>
+  filter(snow > 0, snow < 100) |>
+  ggplot(aes(x = snow, y = factor(year))) +
+  geom_density_ridges(scale = .85, alpha = .6) +
   labs(
     title = "Snowfall by year (0 < snow < 100 mm)",
     x = "Snowfall (mm)",
-    y = "Year"
-  )
+    y = "Year")
 
 tmax_tmin_plot / snow_plot
 ```
@@ -178,7 +177,7 @@ demographic data are excluded, `sex` and `education` are encoded as factors with
 education ordered from least to most, and the accelerometer data are pivoted to
 one row per participant-minute before an inner join. The resulting dataset has
 `r nrow(nhanes_df)` rows on
-`r length(unique(pull(nhanes_df, seqn)))` participants.
+`r n_distinct(pull(nhanes_df, seqn))` participants.
 
 ### Education and sex
 ```{r education_table}
@@ -187,7 +186,7 @@ nhanes_covar |>
   pivot_wider(
     names_from = sex,
     values_from = n) |>
-  knitr::kable(caption = "Number of men and women in each education category")
+  knitr::kable()
 
 nhanes_covar |>
   ggplot(aes(x = education, y = age, fill = sex)) +
@@ -214,19 +213,18 @@ two categories the sexes are more similar.
 
 ### Total activity
 
-```{r total_activity}
-nhanes_df |> 
-  group_by(seqn, sex, age, education) |> 
-  summarize(total_activity = sum(mims, na.rm = TRUE)) |> 
-  ggplot(aes(x = age, y = total_activity, color = sex)) + 
-  geom_point(alpha = .6) + 
-  geom_smooth(se = FALSE) + 
-  facet_grid(. ~ education) + 
+```{r total_activity, message=FALSE}
+nhanes_df |>
+  group_by(seqn, sex, age, education) |>
+  summarize(total_activity = sum(mims, na.rm = TRUE)) |>
+  ggplot(aes(x = age, y = total_activity, color = sex)) +
+  geom_point(alpha = .6) +
+  geom_smooth(se = FALSE) +
+  facet_grid(. ~ education) +
   labs(
     title = "Total daily activity against age by education level and sex",
     x = "Age (years)",
-    y = "Total activity (sum of MIMS)"
-  )
+    y = "Total activity (sum of MIMS)")
 ```
 
 In all three education levels, total activity tends to decline as age increases,
@@ -242,21 +240,19 @@ variation in total activity.
 
 ### 24-hour activity profiles
 
-```{r activity_profiles}
-nhanes_df |> 
-  ggplot(aes(x = minute, y = mims, color = sex)) + 
-  geom_point(alpha = .05, size = .5) + 
-  geom_smooth(se = FALSE) + 
-  facet_grid(. ~ education) + 
+```{r activity_profiles, message=FALSE}
+nhanes_df |>
+  ggplot(aes(x = minute, y = mims, color = sex)) +
+  geom_point(alpha = .05, size = .5) +
+  geom_smooth(se = FALSE) +
+  facet_grid(. ~ education) +
   scale_x_continuous(
     breaks = c(0, 360, 720, 1080, 1440),
-    labels = c("midnight", "6am", "noon", "6pm", "midnight")
-  ) + 
+    labels = c("midnight", "6am", "noon", "6pm", "midnight")) +
   labs(
     title = "24-hour activity profiles by education level and sex",
     x = "Time of day",
-    y = "MIMS"
-  )
+    y = "MIMS")
 ```
 
 All three panels show the same broad daily rhythm: activity is lowest overnight,
@@ -276,7 +272,7 @@ the timing of activity more than sex does.
 
 This problem uses data on rides taken on the NYC Citi Bike system.
 
-```{r load_citibike}
+```{r load_citibike, message=FALSE}
 jan_2020_df =
   read_csv("data/Jan 2020 Citi.csv") |>
   janitor::clean_names() |>
@@ -309,11 +305,10 @@ citibike_df =
 ```
 
 
-The four monthly files are read with a short helper function that cleans names
-and records the year and month each file came from, then stacked into a single
-dataframe. Day of week, month, bike type, and membership status are encoded as
-factors, with days and months in calendar order so that tables and plots sort
-sensibly.
+The four monthly files are each read in, cleaned, and labeled with the year and
+month they came from, then stacked into a single dataframe with `bind_rows()`.
+Day of week, month, bike type, and membership status are encoded as factors,
+with days and months in calendar order so that tables and plots sort sensibly.
 
 The resulting dataset contains `r nrow(citibike_df)` rides and
 `r ncol(citibike_df)` variables. Each row is one ride, with a unique `ride_id`,
@@ -325,15 +320,14 @@ hours in each of the four months.
 
 ### Rides by year, month, and membership status
 
-```{r rides_table}
-citibike_df |> 
-  group_by(year, month, member_casual) |> 
-  summarize(n_rides = n()) |> 
+```{r rides_table, message=FALSE}
+citibike_df |>
+  group_by(year, month, member_casual) |>
+  summarize(n_rides = n()) |>
   pivot_wider(
     names_from = member_casual,
-    values_from = n_rides
-  ) |> 
-  knitr::kable(caption = "Total rides by year, month, and rider type")
+    values_from = n_rides) |>
+  knitr::kable()
 ```
 
 Ridership grew substantially between 2020 and 2024 in both months, and July is
@@ -346,40 +340,36 @@ rides, reflecting both the smaller system at that time and low winter demand.
 ### Most popular starting stations, July 2024
 
 ```{r popular_stations}
-citibike_df |> 
-  filter(year == 2024, month == "July") |> 
-  count(start_station_name) |> 
-  arrange(desc(n)) |> 
-  head(5) |> 
-  knitr::kable(
-    col.names = c("Starting station", "Number of rides"),
-    caption = "Five most popular starting stations in July 2024"
-  )
+citibike_df |>
+  filter(year == 2024, month == "July") |>
+  count(start_station_name) |>
+  arrange(desc(n)) |>
+  head(5) |>
+  knitr::kable()
 ```
 
 ### Median ride duration
 
-```{r median_duration}
-citibike_df |> 
-  group_by(year, month, weekdays) |> 
-  summarize(median_duration = median(duration, na.rm = TRUE)) |> 
-  ggplot(aes(x = weekdays, y = median_duration, color = month, group = month)) + 
-  geom_point() + 
-  geom_line() + 
-  facet_grid(. ~ year) + 
+```{r median_duration, message=FALSE}
+citibike_df |>
+  group_by(year, month, weekdays) |>
+  summarize(median_duration = median(duration, na.rm = TRUE)) |>
+  ggplot(aes(x = weekdays, y = median_duration, color = month, group = month)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(year ~ .) +
   labs(
     title = "Median ride duration by day of week, month, and year",
     x = "Day of week",
-    y = "Median duration (minutes)"
-  ) + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    y = "Median duration (minutes)")
 ```
 
 Median ride duration is consistently longer in July than in January, consistent
 with warmer weather encouraging longer and more leisurely trips. Within each
-month, rides on Saturday and Sunday are longer than rides on weekdays, which
-suggests weekday riding is dominated by commuting and weekend riding by
-recreation. Comparing the panels, median durations are shorter in 2024 than in
+month, rides on weekends (especially Saturday) tend to be longer than rides on
+weekdays, which suggests weekday riding is dominated by commuting and weekend
+riding by recreation, although in January 2024 Sunday rides are actually the
+shortest. Comparing the panels, median durations are shorter in 2024 than in
 2020 across nearly every day and month. One plausible explanation is that the
 2020 data were collected when commuting patterns were disrupted and riding
 skewed recreational, while by 2024 the system had expanded and returned to
@@ -388,17 +378,16 @@ shorter, more routine trips.
 ### Ride duration in 2024 by month, membership, and bike type
 
 ```{r duration_distribution_2024}
-citibike_df |> 
-  filter(year == 2024) |> 
-  ggplot(aes(x = member_casual, y = duration, fill = rideable_type)) + 
-  geom_violin(alpha = .6) + 
-  facet_grid(. ~ month) + 
+citibike_df |>
+  filter(year == 2024) |>
+  ggplot(aes(x = member_casual, y = duration, fill = rideable_type)) +
+  geom_violin(alpha = .6) +
+  facet_grid(. ~ month) +
   labs(
     title = "Distribution of ride duration in 2024",
     x = "Rider type",
     y = "Duration (minutes)",
-    fill = "Bike type"
-  )
+    fill = "Bike type")
 ```
 
 In 2024, casual riders take noticeably longer rides than members in both
