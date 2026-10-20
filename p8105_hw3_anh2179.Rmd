@@ -272,7 +272,7 @@ the timing of activity more than sex does.
 
 This problem uses data on rides taken on the NYC Citi Bike system.
 
-```{r load_citibike}
+```{r load_citibike, message=FALSE}
 jan_2020_df =
   read_csv("data/Jan 2020 Citi.csv") |>
   janitor::clean_names() |>
@@ -320,7 +320,7 @@ hours in each of the four months.
 
 ### Rides by year, month, and membership status
 
-```{r rides_table}
+```{r rides_table, message=FALSE}
 citibike_df |>
   group_by(year, month, member_casual) |>
   summarize(n_rides = n()) |>
