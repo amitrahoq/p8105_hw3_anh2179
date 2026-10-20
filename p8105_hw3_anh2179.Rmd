@@ -71,7 +71,7 @@ rounded to millimeters.
 
 ### Average max temperature in January and July
 
-```{r jan_july_plot, message=FALSE}
+```{r jan_july_plot}
 ny_noaa_df |>
   filter(month %in% c(1, 7)) |>
   group_by(id, year, month) |>
@@ -140,7 +140,7 @@ is no obvious trend in the distribution of snowfall across the three decades.
 This problem uses accelerometer and demographic data from 250 NHANES
 participants.
 
-```{r load_nhanes, message=FALSE}
+```{r load_nhanes}
 nhanes_covar =
   read_csv("data/nhanes_covar.csv", skip = 4) |>
   janitor::clean_names() |>
@@ -213,7 +213,7 @@ two categories the sexes are more similar.
 
 ### Total activity
 
-```{r total_activity, message=FALSE}
+```{r total_activity}
 nhanes_df |>
   group_by(seqn, sex, age, education) |>
   summarize(total_activity = sum(mims, na.rm = TRUE)) |>
@@ -240,7 +240,7 @@ variation in total activity.
 
 ### 24-hour activity profiles
 
-```{r activity_profiles, message=FALSE}
+```{r activity_profiles}
 nhanes_df |>
   ggplot(aes(x = minute, y = mims, color = sex)) +
   geom_point(alpha = .05, size = .5) +
@@ -272,7 +272,7 @@ the timing of activity more than sex does.
 
 This problem uses data on rides taken on the NYC Citi Bike system.
 
-```{r load_citibike, message=FALSE}
+```{r load_citibike}
 jan_2020_df =
   read_csv("data/Jan 2020 Citi.csv") |>
   janitor::clean_names() |>
@@ -320,7 +320,7 @@ hours in each of the four months.
 
 ### Rides by year, month, and membership status
 
-```{r rides_table, message=FALSE}
+```{r rides_table}
 citibike_df |>
   group_by(year, month, member_casual) |>
   summarize(n_rides = n()) |>
@@ -350,7 +350,7 @@ citibike_df |>
 
 ### Median ride duration
 
-```{r median_duration, message=FALSE}
+```{r median_duration}
 citibike_df |>
   group_by(year, month, weekdays) |>
   summarize(median_duration = median(duration, na.rm = TRUE)) |>
